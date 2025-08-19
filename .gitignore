@@ -70,6 +70,8 @@ Saved/*
 # Dev Folders 
 Content/Game/Dev/*
 
+# External Folders
+Content/__*
 
 
 # Compiled source files for the engine to use
