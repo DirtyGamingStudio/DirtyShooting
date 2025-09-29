@@ -69,6 +69,8 @@ Saved/*
 
 # Dev Folders 
 Content/Game/Dev/*
+Content/LevelPrototyping/*
+Content/StarterContent/*
 
 # External Folders
 Content/__*
