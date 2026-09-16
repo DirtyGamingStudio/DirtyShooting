@@ -1,0 +1,1 @@
+{"FileVersion":3,"Version":1,"VersionName":"1.0","FriendlyName":"Shooter Settings","Description":"Persistent settings, pause menu and local input remapping.","Category":"Game","CanContainContent":false,"EnabledByDefault":true,"Modules":[{"Name":"ShooterSettings","Type":"Runtime","LoadingPhase":"PreDefault"}],"Plugins":[{"Name":"EnhancedInput","Enabled":true}]}
