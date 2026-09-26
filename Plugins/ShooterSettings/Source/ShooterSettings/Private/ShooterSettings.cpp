@@ -10,6 +10,8 @@
 #include "GameFramework/InputSettings.h"
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundBase.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedPlayerInput.h"
 #include "InputMappingContext.h"
@@ -45,6 +47,7 @@ void UShooterSettingsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
   }
  }
  Preferences->MasterVolume=FMath::Clamp(Preferences->MasterVolume,0.f,1.f);
+ Preferences->MusicVolume=FMath::Clamp(Preferences->MusicVolume,0.f,1.f);
  Preferences->Sensitivity=FMath::Clamp(Preferences->Sensitivity,.1f,3.f);
  Preferences->FieldOfView=FMath::Clamp(Preferences->FieldOfView,60.f,120.f);
  for(const auto& B:Bindings())if(!Preferences->Keys.Contains(B.Id)||!Preferences->Keys[B.Id].IsValid())Preferences->Keys.Add(B.Id,B.DefaultKey);
@@ -63,7 +66,7 @@ void UShooterSettingsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
  }
  bInitialized=true;
 }
-void UShooterSettingsSubsystem::Deinitialize(){bInitialized=false;PauseMenu=nullptr;ContextCopies.Empty();Super::Deinitialize();}
+void UShooterSettingsSubsystem::Deinitialize(){if(IsValid(MusicAudio)){MusicAudio->Stop();MusicAudio->DestroyComponent();}MusicAudio=nullptr;MusicWorld.Reset();bInitialized=false;PauseMenu=nullptr;ContextCopies.Empty();Super::Deinitialize();}
 UWorld* UShooterSettingsSubsystem::GetWorld() const{return GetGameInstance()?GetGameInstance()->GetWorld():nullptr;}
 bool UShooterSettingsSubsystem::IsTickable() const{return bInitialized&&!IsTemplate()&&GetWorld()&&GetWorld()->IsGameWorld();}
 TStatId UShooterSettingsSubsystem::GetStatId() const{RETURN_QUICK_DECLARE_CYCLE_STAT(ShooterSettings,STATGROUP_Tickables);}
@@ -71,6 +74,7 @@ bool UShooterSettingsSubsystem::Save(){return UGameplayStatics::SaveGameToSlot(P
 void UShooterSettingsSubsystem::Tick(float DeltaTime){
  auto* PC=GetWorld()?GetWorld()->GetFirstPlayerController():nullptr;
  if(!PC||!PC->IsLocalController())return;
+ UpdateMusic();
  if(CurrentController.Get()!=PC){CurrentController=PC;CurrentPawn=nullptr;BoundInput=nullptr;ContextCopies.Empty();ApplyGameplay();ApplyBindings();}
  if(PC->InputComponent&&BoundInput.Get()!=PC->InputComponent){
   BoundInput=PC->InputComponent;auto& B=PC->InputComponent->BindKey(EKeys::Escape,IE_Pressed,this,&UShooterSettingsSubsystem::TogglePause);B.bExecuteWhenPaused=true;B.bConsumeInput=true;
@@ -80,6 +84,7 @@ void UShooterSettingsSubsystem::Tick(float DeltaTime){
 }
 void UShooterSettingsSubsystem::ApplyGameplay(){
  if(!Preferences||!GetWorld())return;
+ if(IsValid(MusicAudio))MusicAudio->SetVolumeMultiplier(FMath::Clamp(Preferences->MusicVolume,0.f,1.f));
  auto* Mix=LoadObject<USoundMix>(nullptr,TEXT("/Game/Game/Settings/SM_MasterSettings.SM_MasterSettings"));
  auto* Master=LoadObject<USoundClass>(nullptr,TEXT("/Engine/EngineSounds/Master.Master"));
  if(Mix&&Master){UGameplayStatics::SetSoundMixClassOverride(this,Mix,Master,Preferences->MasterVolume,1.f,0.f,true);UGameplayStatics::SetBaseSoundMix(this,Mix);}
@@ -89,9 +94,21 @@ void UShooterSettingsSubsystem::ApplyGameplay(){
   if(auto* V=FindFProperty<FFloatProperty>(Old->GetClass(),TEXT("MasterVolume")))V->SetPropertyValue_InContainer(Old,Preferences->MasterVolume);
   if(auto* V=FindFProperty<FFloatProperty>(Old->GetClass(),TEXT("MouseSensitivity")))V->SetPropertyValue_InContainer(Old,Preferences->Sensitivity);
  }
- if(auto* PC=GetWorld()->GetFirstPlayerController())if(auto* Pawn=PC->GetPawn()){
+ if(auto* PC=GetWorld()->GetFirstPlayerController())if(APawn* Pawn=PC->GetPawn()){
   TArray<UCameraComponent*> Cameras;Pawn->GetComponents(Cameras);for(auto* Camera:Cameras)Camera->SetFieldOfView(Preferences->FieldOfView);
  }
+}
+void UShooterSettingsSubsystem::UpdateMusic(){
+ UWorld* World=GetWorld();
+ if(!World||!World->IsGameWorld()||MusicWorld.Get()==World)return;
+ if(IsValid(MusicAudio)){MusicAudio->Stop();MusicAudio->DestroyComponent();}
+ MusicAudio=nullptr;MusicWorld=World;
+ const bool bMenu=UGameplayStatics::GetCurrentLevelName(this,true).Equals(TEXT("UI_MainMenu"));
+ USoundBase* Track=bMenu?MenuMusic.LoadSynchronous():GameplayMusic.LoadSynchronous();
+ if(!Track)return;
+ // World-owned audio stops on travel; rebuilding an options/menu widget never restarts it.
+ MusicAudio=UGameplayStatics::SpawnSound2D(this,Track,1.f,1.f,0.f,nullptr,false,false);
+ if(MusicAudio){MusicAudio->SetUISound(true);MusicAudio->SetVolumeMultiplier(Preferences?Preferences->MusicVolume:1.f);}
 }
 void UShooterSettingsSubsystem::UpdateContexts(){
  auto* PC=CurrentController.Get();auto* LP=PC?PC->GetLocalPlayer():nullptr;
@@ -140,5 +157,6 @@ FInputActionValue UShooterLookModifier::ModifyRaw_Implementation(const UEnhanced
  auto* PC=Input?Cast<APlayerController>(Input->GetOuter()):nullptr;auto* GI=PC?PC->GetGameInstance():nullptr;auto* S=GI?GI->GetSubsystem<UShooterSettingsSubsystem>():nullptr;
  if(S&&S->Preferences){auto V=Value.Get<FVector>();V.X*=S->Preferences->Sensitivity;V.Y*=S->Preferences->Sensitivity*(S->Preferences->InvertY?-1.f:1.f);return FInputActionValue(Value.GetValueType(),V);}return Value;
 }
+
 
 
