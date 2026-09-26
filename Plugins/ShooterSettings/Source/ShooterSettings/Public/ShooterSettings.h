@@ -23,6 +23,7 @@ class SHOOTERSETTINGS_API UShooterPreferences : public USaveGame {
  GENERATED_BODY()
 public:
  UPROPERTY(SaveGame) float MasterVolume=1.f;
+ UPROPERTY(SaveGame) float MusicVolume=1.f;
  UPROPERTY(SaveGame) float Sensitivity=1.f;
  UPROPERTY(SaveGame) float FieldOfView=90.f;
  UPROPERTY(SaveGame) bool InvertY=false;
@@ -59,6 +60,11 @@ private:
  TWeakObjectPtr<APawn> CurrentPawn;
  TWeakObjectPtr<UInputComponent> BoundInput;
  bool bInitialized=false;
+ UPROPERTY(Transient) TObjectPtr<class UAudioComponent> MusicAudio;
+ UPROPERTY() TSoftObjectPtr<class USoundBase> MenuMusic{FSoftObjectPath(TEXT("/Game/Game/FX/Audio/Carnificina_v3_Full.Carnificina_v3_Full"))};
+ UPROPERTY() TSoftObjectPtr<class USoundBase> GameplayMusic{FSoftObjectPath(TEXT("/Game/Game/FX/Audio/Carnificina_v3_Loop.Carnificina_v3_Loop"))};
+ TWeakObjectPtr<UWorld> MusicWorld;
+ void UpdateMusic();
  void UpdateContexts();
 };
 
@@ -128,4 +134,5 @@ private:
  void Refresh();
  void Apply();
  void Reset();
+ void ReportBug();
 };
