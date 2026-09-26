@@ -8,8 +8,9 @@ public class ShooterGameTarget : TargetRules
 	public ShooterGameTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-		DefaultBuildSettings = BuildSettingsVersion.V5;
+		DefaultBuildSettings = BuildSettingsVersion.V7;
 
 		ExtraModuleNames.AddRange( new string[] { "ShooterGame" } );
 	}
 }
+

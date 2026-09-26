@@ -18,6 +18,9 @@
 #include "Components/Slider.h"
 #include "Components/CheckBox.h"
 #include "Components/InputKeySelector.h"
+
+#include "HAL/PlatformProcess.h"
+
 #include "Engine/GameInstance.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/GameplayStatics.h"
@@ -45,7 +48,7 @@ void USettingsMenu::Build(){
  auto* Layout=WidgetTree->ConstructWidget<UVerticalBox>();FramePadding->AddChild(Layout);
  auto* Title=Text(TEXT("SETTINGS"),38);Title->SetJustification(ETextJustify::Center);Layout->AddChildToVerticalBox(Title)->SetPadding(FMargin(0,0,0,18));
  auto* Tabs=WidgetTree->ConstructWidget<UHorizontalBox>();Layout->AddChildToVerticalBox(Tabs)->SetPadding(FMargin(0,0,0,16));
- for(int32 I=0;I<3;++I){auto* B=Button(I==0?TEXT("Video"):I==1?TEXT("Gameplay"):TEXT("Controls"),TEXT("Tab"),I);TabButtons.Add(B);auto* S=Tabs->AddChildToHorizontalBox(B);S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));S->SetPadding(FMargin(4,0));}
+ for(int32 I=0;I<4;++I){auto* B=Button(I==0?TEXT("Video"):I==1?TEXT("Gameplay"):I==2?TEXT("Controls"):TEXT("Report Bug"),TEXT("Tab"),I);TabButtons.Add(B);auto* S=Tabs->AddChildToHorizontalBox(B);S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));S->SetPadding(FMargin(4,0));}
  Pages=WidgetTree->ConstructWidget<UWidgetSwitcher>();Layout->AddChildToVerticalBox(Pages)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  for(int32 Page=0;Page<3;++Page){
   auto* PageLayout=WidgetTree->ConstructWidget<UVerticalBox>();Pages->AddChild(PageLayout);
@@ -61,8 +64,8 @@ void USettingsMenu::Build(){
     C->OnSelectionChanged.AddDynamic(Callback(TEXT("Video"),I),&USettingsCallback::OptionChanged);R->AddChildToHorizontalBox(C)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
    }
   }else if(Page==1){
-   const TCHAR* Labels[]={TEXT("Master Volume"),TEXT("Mouse Sensitivity"),TEXT("Field of View")};
-   for(int32 I=0;I<3;++I){auto* R=Row(Rows,Labels[I]);auto* Slider=WidgetTree->ConstructWidget<USlider>();Sliders.Add(Slider);Slider->SetMinValue(I==0?0:I==1?.1f:60);Slider->SetMaxValue(I==0?1:I==1?3:120);Slider->SetStepSize(I==0?.01f:I==1?.05f:1);Slider->OnValueChanged.AddDynamic(Callback(TEXT("Slider"),I),&USettingsCallback::FloatChanged);auto* S=R->AddChildToHorizontalBox(Slider);S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));S->SetVerticalAlignment(VAlign_Center);S->SetPadding(FMargin(10,0,20,0));auto* Box=WidgetTree->ConstructWidget<USizeBox>();Box->SetWidthOverride(100);auto* Value=Text(TEXT(""));Value->SetJustification(ETextJustify::Right);Readouts.Add(Value);Box->AddChild(Value);R->AddChildToHorizontalBox(Box)->SetVerticalAlignment(VAlign_Center);}
+   const TCHAR* Labels[]={TEXT("Master Volume"),TEXT("Mouse Sensitivity"),TEXT("Field of View"),TEXT("Music Volume")};
+   for(int32 I=0;I<4;++I){auto* R=Row(Rows,Labels[I]);auto* Slider=WidgetTree->ConstructWidget<USlider>();Sliders.Add(Slider);Slider->SetMinValue((I==0||I==3)?0:I==1?.1f:60);Slider->SetMaxValue((I==0||I==3)?1:I==1?3:120);Slider->SetStepSize((I==0||I==3)?.01f:I==1?.05f:1);Slider->OnValueChanged.AddDynamic(Callback(TEXT("Slider"),I),&USettingsCallback::FloatChanged);auto* S=R->AddChildToHorizontalBox(Slider);S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));S->SetVerticalAlignment(VAlign_Center);S->SetPadding(FMargin(10,0,20,0));auto* Box=WidgetTree->ConstructWidget<USizeBox>();Box->SetWidthOverride(100);auto* Value=Text(TEXT(""));Value->SetJustification(ETextJustify::Right);Readouts.Add(Value);Box->AddChild(Value);R->AddChildToHorizontalBox(Box)->SetVerticalAlignment(VAlign_Center);}
    auto* R=Row(Rows,TEXT("Invert Y-axis"));InvertCheck=WidgetTree->ConstructWidget<UCheckBox>();InvertCheck->OnCheckStateChanged.AddDynamic(Callback(TEXT("Invert"),0),&USettingsCallback::CheckChanged);R->AddChildToHorizontalBox(InvertCheck)->SetVerticalAlignment(VAlign_Center);
    Rows->AddChildToVerticalBox(Text(TEXT("Changes take effect when you select Apply Settings."),18))->SetPadding(FMargin(8,24));
   }else{
@@ -74,6 +77,13 @@ void USettingsMenu::Build(){
   auto* Footer=WidgetTree->ConstructWidget<UHorizontalBox>();PageLayout->AddChildToVerticalBox(Footer)->SetPadding(FMargin(0,18,0,8));
   for(int32 I=0;I<2;++I){auto* B=Button(I?TEXT("Apply Settings"):TEXT("Reset to Defaults"),I?TEXT("Apply"):TEXT("Reset"),Page);auto* S=Footer->AddChildToHorizontalBox(B);S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));S->SetPadding(FMargin(4,0));}
  }
+ auto* ReportPage=WidgetTree->ConstructWidget<UVerticalBox>();
+ Pages->AddChild(ReportPage);
+ ReportPage->AddChildToVerticalBox(Text(TEXT("Report a bug"),28))->SetPadding(FMargin(8,4,8,12));
+ auto* Instructions=Text(TEXT("Open our Google Form to describe the bug and how to reproduce it. The form will open in your browser."),18);
+ Instructions->SetAutoWrapText(true);
+ ReportPage->AddChildToVerticalBox(Instructions)->SetPadding(FMargin(8,0,8,20));
+ ReportPage->AddChildToVerticalBox(Button(TEXT("Open Google Form"),TEXT("ReportBug"),0))->SetPadding(FMargin(8,0,8,8));
  Status=Text(TEXT(""),18);Status->SetJustification(ETextJustify::Center);Layout->AddChildToVerticalBox(Status)->SetPadding(FMargin(0,8));
  auto* NavigationRow=WidgetTree->ConstructWidget<UHorizontalBox>(); Layout->AddChildToVerticalBox(NavigationRow)->SetHorizontalAlignment(HAlign_Center);
  auto* CloseButton=Button(TEXT("Back"),TEXT("Close"),0); CloseLabel=Cast<UTextBlock>(CloseButton->GetContent()); NavigationRow->AddChildToHorizontalBox(CloseButton)->SetPadding(FMargin(4,0));
@@ -94,12 +104,12 @@ void USettingsMenu::Refresh(){
  FString R=FString::Printf(TEXT("%d x %d"),Resolution.X,Resolution.Y);if(VideoCombos[1]->FindOptionIndex(R)==INDEX_NONE)VideoCombos[1]->AddOption(R);VideoCombos[1]->SetSelectedOption(R);
  for(int32 I=0;I<4;++I)VideoCombos[I+2]->SetSelectedIndex(Quality[I]);VideoCombos[6]->SetSelectedIndex(VSync?1:0);
  FString Cap=FrameCap<=0?TEXT("Unlimited"):FString::FromInt(FMath::RoundToInt(FrameCap));if(VideoCombos[7]->FindOptionIndex(Cap)==INDEX_NONE)VideoCombos[7]->AddOption(Cap);VideoCombos[7]->SetSelectedOption(Cap);
- Sliders[0]->SetValue(Draft->MasterVolume);Sliders[1]->SetValue(Draft->Sensitivity);Sliders[2]->SetValue(Draft->FieldOfView);InvertCheck->SetIsChecked(Draft->InvertY);
- Readouts[0]->SetText(FText::FromString(FString::Printf(TEXT("%d%%"),FMath::RoundToInt(Draft->MasterVolume*100))));Readouts[1]->SetText(FText::FromString(FString::Printf(TEXT("%.2fx"),Draft->Sensitivity)));Readouts[2]->SetText(FText::FromString(FString::Printf(TEXT("%d°"),FMath::RoundToInt(Draft->FieldOfView))));
+ Sliders[3]->SetValue(Draft->MusicVolume);Sliders[0]->SetValue(Draft->MasterVolume);Sliders[1]->SetValue(Draft->Sensitivity);Sliders[2]->SetValue(Draft->FieldOfView);InvertCheck->SetIsChecked(Draft->InvertY);
+ Readouts[3]->SetText(FText::FromString(FString::Printf(TEXT("%d%%"),FMath::RoundToInt(Draft->MusicVolume*100))));Readouts[0]->SetText(FText::FromString(FString::Printf(TEXT("%d%%"),FMath::RoundToInt(Draft->MasterVolume*100))));Readouts[1]->SetText(FText::FromString(FString::Printf(TEXT("%.2fx"),Draft->Sensitivity)));Readouts[2]->SetText(FText::FromString(FString::Printf(TEXT("%d°"),FMath::RoundToInt(Draft->FieldOfView))));
  const auto& B=UShooterSettingsSubsystem::Bindings();for(int32 I=0;I<KeySelectors.Num();++I)KeySelectors[I]->SetSelectedKey(FInputChord(Draft->Keys.Contains(B[I].Id)?Draft->Keys[B[I].Id]:B[I].DefaultKey));bRefreshing=false;
 }
-void USettingsMenu::Click(const FString& Kind,int32 Id){if(Kind==TEXT("Tab")){ActiveTab=Id;Pages->SetActiveWidgetIndex(Id);for(int I=0;I<TabButtons.Num();++I)TabButtons[I]->SetBackgroundColor(I==Id?FLinearColor(.12f,.43f,.62f):FLinearColor(.12f,.19f,.27f));}else if(Kind==TEXT("Apply"))Apply();else if(Kind==TEXT("Reset"))Reset();else if(Kind==TEXT("Close"))Close();else if(Kind==TEXT("MainMenu"))ReturnToMainMenu();}
-void USettingsMenu::ChangeFloat(int32 Id,float V){if(bRefreshing||!Draft)return;if(Id==0)Draft->MasterVolume=V;else if(Id==1)Draft->Sensitivity=V;else Draft->FieldOfView=FMath::RoundToFloat(V);Refresh();Status->SetText(FText::FromString(TEXT("Unsaved changes — select Apply Settings.")));}
+void USettingsMenu::Click(const FString& Kind,int32 Id){if(Kind==TEXT("Tab")){ActiveTab=Id;Pages->SetActiveWidgetIndex(Id);for(int I=0;I<TabButtons.Num();++I)TabButtons[I]->SetBackgroundColor(I==Id?FLinearColor(.12f,.43f,.62f):FLinearColor(.12f,.19f,.27f));}else if(Kind==TEXT("Apply"))Apply();else if(Kind==TEXT("Reset"))Reset();else if(Kind==TEXT("Close"))Close();else if(Kind==TEXT("MainMenu"))ReturnToMainMenu();else if(Kind==TEXT("ReportBug"))ReportBug();}
+void USettingsMenu::ChangeFloat(int32 Id,float V){if(bRefreshing||!Draft)return;if(Id==3)Draft->MusicVolume=FMath::Clamp(V,0.f,1.f);else if(Id==0)Draft->MasterVolume=V;else if(Id==1)Draft->Sensitivity=V;else Draft->FieldOfView=FMath::RoundToFloat(V);Refresh();Status->SetText(FText::FromString(TEXT("Unsaved changes — select Apply Settings.")));}
 void USettingsMenu::ChangeCheck(bool V){if(bRefreshing||!Draft)return;Draft->InvertY=V;Status->SetText(FText::FromString(TEXT("Unsaved changes — select Apply Settings.")));}
 void USettingsMenu::ChangeOption(int32 Id,const FString& V){if(bRefreshing)return;if(Id==0)WindowMode=VideoCombos[Id]->FindOptionIndex(V);else if(Id==1){FString X,Y;if(V.Split(TEXT(" x "),&X,&Y))Resolution=FIntPoint(FCString::Atoi(*X),FCString::Atoi(*Y));}else if(Id<6)Quality[Id-2]=VideoCombos[Id]->FindOptionIndex(V);else if(Id==6)VSync=V==TEXT("On");else FrameCap=V==TEXT("Unlimited")?0:FCString::Atof(*V);Status->SetText(FText::FromString(TEXT("Unsaved changes — select Apply Settings.")));}
 void USettingsMenu::ChangeKey(int32 Id,FInputChord Chord){
@@ -113,13 +123,13 @@ void USettingsMenu::ChangeKey(int32 Id,FInputChord Chord){
 void USettingsMenu::Apply(){
  auto* S=Settings();if(!S||!Draft)return;
  if(ActiveTab==0){auto* G=UGameUserSettings::GetGameUserSettings();if(!G)return;G->SetFullscreenMode((EWindowMode::Type)WindowMode);G->SetScreenResolution(Resolution);G->SetShadowQuality(Quality[0]);G->SetTextureQuality(Quality[1]);G->SetShadingQuality(Quality[2]);G->SetAntiAliasingQuality(Quality[3]);G->SetVSyncEnabled(VSync);G->SetFrameRateLimit(FrameCap);G->ApplySettings(false);G->ConfirmVideoMode();G->SaveSettings();}
- else if(ActiveTab==1){S->Preferences->MasterVolume=Draft->MasterVolume;S->Preferences->Sensitivity=Draft->Sensitivity;S->Preferences->FieldOfView=Draft->FieldOfView;S->Preferences->InvertY=Draft->InvertY;S->ApplyGameplay();}
+ else if(ActiveTab==1){S->Preferences->MusicVolume=Draft->MusicVolume;S->Preferences->MasterVolume=Draft->MasterVolume;S->Preferences->Sensitivity=Draft->Sensitivity;S->Preferences->FieldOfView=Draft->FieldOfView;S->Preferences->InvertY=Draft->InvertY;S->ApplyGameplay();}
  else{S->Preferences->Keys=Draft->Keys;S->ApplyBindings();}
  Status->SetText(FText::FromString(S->Save()?TEXT("Settings applied and saved."):TEXT("Applied, but saving failed. Check available disk space.")));
 }
 void USettingsMenu::Reset(){
  if(!Draft)return;if(ActiveTab==0){WindowMode=2;Resolution=FIntPoint(1280,720);for(auto& Q:Quality)Q=0;VSync=false;FrameCap=0;}
- else if(ActiveTab==1){Draft->MasterVolume=1;Draft->Sensitivity=1;Draft->FieldOfView=90;Draft->InvertY=false;}
+ else if(ActiveTab==1){Draft->MusicVolume=1;Draft->MasterVolume=1;Draft->Sensitivity=1;Draft->FieldOfView=90;Draft->InvertY=false;}
  else{Draft->Keys.Empty();for(const auto& B:UShooterSettingsSubsystem::Bindings())Draft->Keys.Add(B.Id,B.DefaultKey);}
  Refresh();Status->SetText(FText::FromString(TEXT("Defaults restored for this tab — select Apply Settings to save.")));
 }
@@ -138,4 +148,14 @@ void USettingsMenu::ReturnToMainMenu(){
  UGameplayStatics::SetGamePaused(this,false);
  UWidgetLayoutLibrary::RemoveAllWidgets(this);
  UGameplayStatics::OpenLevel(this,FName(TEXT("/Game/Game/UI/MainMenu/UI_MainMenu")));
+}
+
+void USettingsMenu::ReportBug()
+{
+ if(!Status)return;
+ FString Error;
+ FPlatformProcess::LaunchURL(TEXT("https://forms.gle/JACgUJcNJFCpkMBW7"),nullptr,&Error);
+ Status->SetText(FText::FromString(Error.IsEmpty()
+  ? TEXT("Browser requested. Complete and submit the bug report in Google Forms.")
+  : TEXT("Could not open your browser. Visit https://forms.gle/JACgUJcNJFCpkMBW7 to report the bug.")));
 }
